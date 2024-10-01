@@ -13,74 +13,23 @@ import {
 } from "@/components/ui/select";
 import { Search } from "lucide-react";
 import { LiveryCard } from "@/components/livery_card";
+import { useLiveries } from "@/hooks/useLiveries";
 
 interface Livery {
   id: number;
-  name: string;
-  creator: string;
-  saved: number;
-  rating: number;
+  created_at: string;
+  user_id: string;
+  title: string;
+  likes: number;
   image: string;
-  isSaved: boolean;
 }
-
-const initialLiveries: Livery[] = [
-  {
-    id: 1,
-    name: "AeroGenesis A330-300 - MEXICANA 1.0",
-    creator: "MELL",
-    saved: 11,
-    rating: 4.5,
-    image: "/home_plane.png",
-    isSaved: false,
-  },
-  {
-    id: 2,
-    name: "EVA Air Laminar A330-300 Livery Three-Pack 1.0",
-    creator: "DEADBYDAYLIGHT",
-    saved: 188,
-    rating: 4.8,
-    image: "/home_plane.png",
-    isSaved: false,
-  },
-  {
-    id: 3,
-    name: "X-Works A339neo Mexican Air Force 1.0",
-    creator: "MELL",
-    saved: 36,
-    rating: 4.2,
-    image: "/home_plane.png",
-    isSaved: false,
-  },
-  {
-    id: 4,
-    name: "Air France A340-313 F-GLZP X-Works A340-300 - White and Black Radom",
-    creator: "AIRFRANCE_KLM",
-    saved: 42,
-    rating: 4.7,
-    image: "/home_plane.png",
-    isSaved: false,
-  },
-];
 
 export default function LiveriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
-  const [liveries, setLiveries] = useState<Livery[]>(initialLiveries);
-
-  const toggleSave = (id: number) => {
-    setLiveries((prevLiveries) =>
-      prevLiveries.map((livery) =>
-        livery.id === id
-          ? {
-              ...livery,
-              isSaved: !livery.isSaved,
-              saved: livery.isSaved ? livery.saved - 1 : livery.saved + 1,
-            }
-          : livery
-      )
-    );
-  };
+  const { liveries } = useLiveries();
+  // console.log("liveries");
+  // console.log(liveries);
 
   return (
     <div className="min-h-screen bg-background font-sans">
@@ -91,7 +40,7 @@ export default function LiveriesPage() {
         sortBy={sortBy}
         setSortBy={setSortBy}
       />
-      <LiveriesGrid liveries={liveries} toggleSave={toggleSave} />
+      <LiveriesGrid liveries={liveries} />
     </div>
   );
 }
@@ -183,20 +132,15 @@ function FilterAndSearchBar({
 
 interface LiveriesGridProps {
   liveries: Livery[];
-  toggleSave: (id: number) => void;
 }
 
-function LiveriesGrid({ liveries, toggleSave }: LiveriesGridProps) {
+function LiveriesGrid({ liveries }: LiveriesGridProps) {
   return (
     <section className="py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {liveries.map((livery) => (
-            <LiveryCard
-              key={livery.id}
-              livery={livery}
-              onToggleSave={toggleSave}
-            />
+            <LiveryCard key={livery.id} livery={livery} />
           ))}
         </div>
       </div>
