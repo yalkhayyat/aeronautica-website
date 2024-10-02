@@ -1,39 +1,87 @@
 import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useClerkSupabaseClient } from './useClerkSupabaseClient'
+import { useSupabase } from '@/lib/supabase-provider';
+import { Livery } from '@/components/livery_card';
 
-export interface Livery {
-    id: number;
-    created_at: string;
-    user_id: string;
-    title: string;
-    likes: number;
-    image: string;
-}
-
-export function useLiveries() {
+export function useLiveries(initialPage = 1, initialPageSize = 12) {
   const [liveries, setLiveries] = useState<Livery[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(initialPage)
+  const [pageSize, setPageSize] = useState(initialPageSize)
+  const [sortBy, setSortBy] = useState<string>('created_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [aircraftFilter, setAircraftFilter] = useState<string | null>(null)
   const { user } = useUser()
-  const supabaseClient = useClerkSupabaseClient()
+  const supabaseClient = useSupabase()
 
   useEffect(() => {
     async function fetchLiveries() {
-        const { data, error } = await supabaseClient
-        .from('liveries')
-        .select('*')
-        .order('created_at', { ascending: false })      
+      setLoading(true)
+      setError(null)
 
-        if (error) {
-          console.error('Error fetching liveries:', error)
-        } else {
-          setLiveries(data as Livery[])
-        }
+      let query = supabaseClient
+        .from('liveries')
+        .select('*', { count: 'exact' })
+
+      if (searchQuery) {
+        query = query.ilike('title', `%${searchQuery}%`)
+      }
+
+      if (aircraftFilter) {
+        query = query.eq('aircraft', aircraftFilter)
+      }
+
+      // First, get the total count
+      const { count, error: countError } = await query
+
+      if (countError) {
+        console.error('Error fetching liveries count:', countError)
+        setError('Failed to fetch liveries count')
+        setLoading(false)
+        return
+      }
+
+      setTotalCount(count || 0)
+
+      // Then, get the paginated data
+      const { data, error } = await query
+        .order(sortBy, { ascending: sortOrder === 'asc' })
+        .range((page - 1) * pageSize, page * pageSize - 1)
+
+      if (error) {
+        console.error('Error fetching liveries:', error)
+        setError('Failed to fetch liveries')
+      } else {
+        setLiveries(data as Livery[])
+      }
+
+      setLoading(false)
     }
 
     if (user) {
       fetchLiveries()
     }
-  }, [user, supabaseClient])
+  }, [user, supabaseClient, page, pageSize, sortBy, sortOrder, searchQuery, aircraftFilter])
 
-  return { liveries }
+  return { 
+    liveries, 
+    loading, 
+    error, 
+    totalCount, 
+    page, 
+    setPage, 
+    pageSize, 
+    setPageSize, 
+    sortBy, 
+    setSortBy, 
+    sortOrder, 
+    setSortOrder,
+    searchQuery,
+    setSearchQuery,
+    aircraftFilter,
+    setAircraftFilter
+  }
 }

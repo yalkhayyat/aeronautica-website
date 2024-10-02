@@ -3,6 +3,8 @@ import "@/app/globals.css";
 import NavBar from "@/components/navbar";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
+import { SupabaseProvider } from "@/lib/supabase-provider";
 
 export default function RootLayout({
   children,
@@ -11,12 +13,15 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body>
-          <NavBar />
-          {children}
-        </body>
-      </html>
+      <SupabaseProvider>
+        <html lang="en">
+          <body>
+            <NavBar />
+            {children}
+            <Toaster />
+          </body>
+        </html>
+      </SupabaseProvider>
     </ClerkProvider>
   );
 }

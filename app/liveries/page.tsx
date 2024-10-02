@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,33 +14,82 @@ import {
 import { Search } from "lucide-react";
 import { LiveryCard } from "@/components/livery_card";
 import { useLiveries } from "@/hooks/useLiveries";
-
-interface Livery {
-  id: number;
-  created_at: string;
-  user_id: string;
-  title: string;
-  likes: number;
-  image: string;
-}
+import { Livery } from "@/components/livery_card";
+import aircraftTypes from "@/data/aircraft-types.json";
 
 export default function LiveriesPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
-  const { liveries } = useLiveries();
-  // console.log("liveries");
-  // console.log(liveries);
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
+  const {
+    liveries,
+    loading,
+    error,
+    totalCount,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    searchQuery,
+    setSearchQuery,
+    aircraftFilter,
+    setAircraftFilter,
+  } = useLiveries();
+
+  const handleSearch = () => {
+    setSearchQuery(localSearchQuery);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: string) => {
+    const [newSortBy, newSortOrder] = value.split("-");
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder as "asc" | "desc");
+    setPage(1);
+  };
+
+  const handleAircraftFilterChange = (value: string) => {
+    setAircraftFilter(value === "all" ? null : value);
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
 
   return (
     <div className="min-h-screen bg-background font-sans">
       <HeroSection />
       <FilterAndSearchBar
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
+        searchQuery={localSearchQuery}
+        setSearchQuery={setLocalSearchQuery}
+        handleSearch={handleSearch}
+        sortBy={`${sortBy}-${sortOrder}`}
+        setSortBy={handleSortChange}
+        aircraftFilter={aircraftFilter}
+        setAircraftFilter={handleAircraftFilterChange}
+        availableAircraft={aircraftTypes}
       />
-      <LiveriesGrid liveries={liveries} />
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <p>Loading...</p>
+        </div>
+      ) : error ? (
+        <div className="flex justify-center items-center h-64">
+          <p>Error: {error}</p>
+        </div>
+      ) : (
+        <>
+          <LiveriesGrid liveries={liveries} />
+          <Pagination
+            currentPage={page}
+            totalPages={Math.ceil(totalCount / pageSize)}
+            onPageChange={handlePageChange}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -75,15 +124,23 @@ function HeroSection() {
 interface FilterAndSearchBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  handleSearch: () => void;
   sortBy: string;
   setSortBy: (sort: string) => void;
+  aircraftFilter: string | null;
+  setAircraftFilter: (aircraft: string | null) => void;
+  availableAircraft: string[];
 }
 
 function FilterAndSearchBar({
   searchQuery,
   setSearchQuery,
+  handleSearch,
   sortBy,
   setSortBy,
+  aircraftFilter,
+  setAircraftFilter,
+  availableAircraft,
 }: FilterAndSearchBarProps) {
   return (
     <section className="bg-card text-card-foreground py-4 border-b border-border">
@@ -106,6 +163,7 @@ function FilterAndSearchBar({
                 placeholder="Search liveries..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 className="pl-10 w-full"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -115,12 +173,30 @@ function FilterAndSearchBar({
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Newest first</SelectItem>
-                <SelectItem value="updated">Last Updated</SelectItem>
-                <SelectItem value="most-saved">Most Saved</SelectItem>
-                <SelectItem value="top-rated">Top Rated</SelectItem>
-                <SelectItem value="a-z">Alphabetical A to Z</SelectItem>
-                <SelectItem value="z-a">Alphabetical Z to A</SelectItem>
+                <SelectItem value="created_at-desc">Newest first</SelectItem>
+                <SelectItem value="updated_at-desc">Last Updated</SelectItem>
+                <SelectItem value="likes-desc">Most Liked</SelectItem>
+                <SelectItem value="views-desc">Most Viewed</SelectItem>
+                <SelectItem value="title-asc">Alphabetical A to Z</SelectItem>
+                <SelectItem value="title-desc">Alphabetical Z to A</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={aircraftFilter || "all"}
+              onValueChange={(value) =>
+                setAircraftFilter(value === "all" ? null : value)
+              }
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by Aircraft" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Aircraft</SelectItem>
+                {availableAircraft.map((aircraft) => (
+                  <SelectItem key={aircraft} value={aircraft}>
+                    {aircraft}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -145,5 +221,37 @@ function LiveriesGrid({ liveries }: LiveriesGridProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: PaginationProps) {
+  return (
+    <div className="flex justify-center items-center space-x-2 mt-8">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="px-4 py-2 border rounded-md"
+      >
+        Previous
+      </button>
+      <span>{`Page ${currentPage} of ${totalPages}`}</span>
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="px-4 py-2 border rounded-md"
+      >
+        Next
+      </button>
+    </div>
   );
 }
