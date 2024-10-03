@@ -14,7 +14,14 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Heart, Bookmark, Copy, Eye } from "lucide-react";
+import {
+  Heart,
+  Bookmark,
+  Copy,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Livery } from "@/components/livery_card";
 import { useSupabase } from "@/lib/supabase-provider";
@@ -75,7 +82,7 @@ export default function LiveryPage() {
         console.error("Error fetching user_id:", error);
         toast({
           title: "Server Error",
-          description: "Faiiled to fetch livery data",
+          description: "Failed to fetch livery data",
           variant: "destructive",
         });
       }
@@ -105,7 +112,7 @@ export default function LiveryPage() {
         console.error("Error fetching user data:", error);
         toast({
           title: "Internal Server Error",
-          description: "Faiiled to fetch user data",
+          description: "Failed to fetch user data",
           variant: "destructive",
         });
       }
@@ -137,7 +144,7 @@ export default function LiveryPage() {
         console.error("Error fetching user data:", error);
         toast({
           title: "Internal Server Error",
-          description: "Faiiled to fetch user data",
+          description: "Failed to fetch user data",
           variant: "destructive",
         });
       }
@@ -194,42 +201,44 @@ export default function LiveryPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-7xl container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <Carousel className="w-full max-w-3xl mx-auto">
-            <CarouselContent>
-              {livery.images.map((image, index) => (
-                <CarouselItem key={index}>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5 }}
-                    className="p-1"
-                  >
-                    <Image
-                      src={image}
-                      alt={`Livery image ${index + 1}`}
-                      width={600}
-                      height={400}
-                      className="rounded-lg object-cover w-full h-[400px]"
-                    />
-                  </motion.div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mt-6"
-          >
-            <h2 className="text-xl font-semibold mb-2">Description</h2>
-            <p className="text-gray-600">{livery.description}</p>
-          </motion.div>
+          <div className="w-full mx-auto">
+            <Carousel className="w-full">
+              <CarouselContent>
+                {livery.images.map((image, index) => (
+                  <CarouselItem key={index}>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                      className="relative"
+                    >
+                      <Image
+                        src={image}
+                        alt={`Livery image ${index + 1}`}
+                        width={600}
+                        height={400}
+                        className="rounded-lg object-cover w-full h-[400px]"
+                      />
+                      <CarouselPrevious className="absolute left-2 top-1/2 transform -translate-y-1/2" />
+                      <CarouselNext className="absolute right-2 top-1/2 transform -translate-y-1/2" />
+                    </motion.div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-6"
+            >
+              <h2 className="text-xl font-semibold mb-2">Description</h2>
+              <p className="text-gray-600">{livery.description}</p>
+            </motion.div>
+          </div>
         </div>
         <div>
           <Card className="w-full">

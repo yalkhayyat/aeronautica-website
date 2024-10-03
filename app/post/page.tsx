@@ -44,13 +44,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@clerk/nextjs";
 import { useSupabase } from "@/lib/supabase-provider";
-
-const AIRCRAFT_TYPES = [
-  "Airbus A220",
-  "Airbus A320",
-  "Boeing 737",
-  "Boeing 757",
-];
+import AIRCRAFT_TYPES from "@/data/aircraft-types.json";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -105,6 +99,7 @@ export default function UploadLiveryPage() {
     useState(false);
   const [isAircraftPopoverOpen, setIsAircraftPopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isJsonValid, setIsJsonValid] = useState(true);
   const { toast } = useToast();
   const { user } = useUser();
   const supabase = useSupabase();
@@ -126,6 +121,21 @@ export default function UploadLiveryPage() {
     name: "textureIds",
   });
 
+  const validateJson = (value: string) => {
+    if (!value) {
+      setIsJsonValid(true);
+      return true;
+    }
+    try {
+      JSON.parse(value);
+      setIsJsonValid(true);
+      return true;
+    } catch (error) {
+      setIsJsonValid(false);
+      return false;
+    }
+  };
+
   const onSubmit = async (values: FormValues) => {
     if (!user) {
       toast({
@@ -134,6 +144,10 @@ export default function UploadLiveryPage() {
         variant: "destructive",
         duration: 5000,
       });
+      return;
+    }
+
+    if (!validateJson(values.advancedCustomization || "")) {
       return;
     }
 
@@ -165,10 +179,8 @@ export default function UploadLiveryPage() {
         user_id: user.id,
         title: values.title,
         description: values.description || null,
-        aircraft: values.aircraft,
+        vehicle_name: values.aircraft,
         images: imageUrls,
-        likes: 0,
-        views: 0,
         advanced_customization: values.advancedCustomization
           ? JSON.parse(values.advancedCustomization)
           : null,
@@ -185,7 +197,7 @@ export default function UploadLiveryPage() {
 
       toast({
         title: "Livery uploaded successfully!",
-        description: "Your livery has been submitted for review.",
+        description: "Thanks for contributing!",
         duration: 5000,
       });
 
@@ -455,16 +467,27 @@ export default function UploadLiveryPage() {
                       <FormControl>
                         <Textarea
                           placeholder="Enter JSON for advanced customization"
-                          className="font-mono"
+                          className={cn(
+                            "font-mono",
+                            !isJsonValid && "border-red-500 focus:ring-red-500"
+                          )}
                           rows={10}
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            validateJson(e.target.value);
+                          }}
                         />
                       </FormControl>
                       <FormDescription>
                         Enter a valid JSON object for advanced customization
                         options
                       </FormDescription>
-                      <FormMessage />
+                      {!isJsonValid && (
+                        <p className="text-sm font-medium text-red-500">
+                          Invalid JSON
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
