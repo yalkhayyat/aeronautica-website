@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   try {
     const user = await clerkClient.users.getUser(userId);
     return NextResponse.json({
-      username: user.username || 'Unknown User'
+      username: user.username || 'Unknown User',
+      pfp: user.imageUrl || ""
     });
   } catch (error) {
     console.error('Error fetching user:', error);

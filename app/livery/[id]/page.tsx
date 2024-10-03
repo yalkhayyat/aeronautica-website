@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,11 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Heart, Copy, Eye } from "lucide-react";
+import { Heart, Bookmark, Copy, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Livery } from "@/components/livery_card";
+import { useSupabase } from "@/lib/supabase-provider";
+import { useUser } from "@clerk/nextjs";
 
 function formatCount(count: number): string {
   if (count >= 1000000) {
@@ -28,100 +30,151 @@ function formatCount(count: number): string {
   }
 }
 
+interface UserData {
+  username: string;
+  image_url: string;
+  likes: [number];
+  saves: [number];
+}
+
 export default function LiveryPage() {
   const [livery, setLivery] = useState<Livery | null>(null);
   const [isLiked, setIsLiked] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const params = useParams();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { user } = useClerk();
+  const [posterUserId, setPosterUserId] = useState("");
+  const [posterUserName, setPosterUserName] = useState("");
+  const [posterUserImage, setPosterUserImage] = useState("");
+  const { isSignedIn, user } = useUser();
+  const [userData, setUserData] = useState<UserData | null>(null);
   const { toast } = useToast();
+  const params = useParams();
+  const livery_id = Array.isArray(params.id) ? params.id[0] : params.id;
 
+  const supabase = useSupabase();
+
+  // Get post data
   useEffect(() => {
-    async function fetchLivery() {
-      setIsLoading(true);
-      setError(null);
+    async function fetchPostData() {
       try {
-        const response = await fetch(`/api/livery/${id}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch livery");
-        }
-        const data = await response.json();
-        setLivery(data);
-        // Increment view count
-        await fetch(`/api/livery/${id}/view`, { method: "POST" });
-      } catch (err) {
-        setError("Error loading livery. Please try again.");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    if (id) {
-      fetchLivery();
-    }
-  }, [id]);
+        const { data, error } = await supabase
+          .from("liveries")
+          .select(
+            "id,user_id,likes,saves,created_at,title,description,images,advanced_customization,views,updated_at,vehicle_name,vehicle_type,texture_ids"
+          )
+          .eq("id", livery_id)
+          .single();
 
-  useEffect(() => {
-    if (livery) {
-      async function fetchUsername() {
-        try {
-          const response = await fetch(`/api/user/${livery.user_id}`);
-          if (!response.ok) {
-            throw new Error("Failed to fetch user data");
-          }
-          const userData = await response.json();
-          setUsername(userData.username);
-        } catch (error) {
-          console.error("Error fetching username:", error);
-          setUsername("Unknown User");
+        if (error) throw error;
+
+        if (data) {
+          setPosterUserId(data.user_id);
+          setLivery(data);
         }
+      } catch (error) {
+        console.error("Error fetching user_id:", error);
+        toast({
+          title: "Server Error",
+          description: "Faiiled to fetch livery data",
+          variant: "destructive",
+        });
       }
-      fetchUsername();
     }
-  }, [livery]);
+
+    fetchPostData();
+  }, [livery_id, supabase, toast]);
+
+  // Get livery poster user data
+  useEffect(() => {
+    async function fetchUserData() {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("username,image_url")
+          .eq("id", posterUserId)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setPosterUserName(data.username);
+          setPosterUserImage(data.image_url);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast({
+          title: "Internal Server Error",
+          description: "Faiiled to fetch user data",
+          variant: "destructive",
+        });
+      }
+    }
+
+    if (posterUserId != "") {
+      fetchUserData();
+    }
+  }, [posterUserId, toast, supabase]);
+
+  // Fetch signed in user data
+  useEffect(() => {
+    async function fetchUserData() {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("username,image_url,likes,saves")
+          .eq("id", user?.id)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setUserData(data);
+          setIsLiked(data.likes.includes(Number(livery_id)) || false);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast({
+          title: "Internal Server Error",
+          description: "Faiiled to fetch user data",
+          variant: "destructive",
+        });
+      }
+    }
+
+    if (posterUserId != "") {
+      fetchUserData();
+    }
+  }, [posterUserId, toast, supabase, user, livery_id]);
 
   const handleLike = async () => {
-    if (!user) {
+    const { error } = await supabase.rpc("toggle_like_livery", {
+      livery_id_input: Number(livery_id),
+    });
+
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "Please sign in to like this livery.",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      const response = await fetch(`/api/livery/${id}/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update like status");
-      }
-      const data = await response.json();
-      setLivery((prev) => (prev ? { ...prev, likes: data.likes } : null));
-      setIsLiked(!isLiked);
-      toast({
-        title: "Success",
-        description: "Livery like status updated successfully!",
-        variant: "default",
-      });
-    } catch (err) {
-      console.error("Error updating livery like status:", err);
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Failed to update like status. Please try again.",
+        title: "Server Error",
+        description: "Failed to like/unlike the image. Please try again.",
         variant: "destructive",
       });
     }
+
+    setLivery((prevLivery) => {
+      if (!prevLivery) return prevLivery; // Handle null case
+
+      return {
+        ...prevLivery,
+        likes: isLiked ? prevLivery.likes - 1 : prevLivery.likes + 1,
+      };
+    });
+    setIsLiked(!isLiked);
+  };
+
+  const handleSave = async () => {
+    // TODO: Implement save functionality
+    setIsSaved(!isSaved);
   };
 
   const handleCopy = (text: string, description: string) => {
@@ -132,105 +185,178 @@ export default function LiveryPage() {
     });
   };
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>{error}</div>;
-  if (!livery) return <div>Livery not found</div>;
+  if (isLoading) {
+    return null;
+  }
+
+  if (!livery) {
+    return <div>Livery not found</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-4">{livery.title}</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div>
-          <Carousel className="w-full max-w-xs mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Carousel className="w-full max-w-3xl mx-auto">
             <CarouselContent>
               {livery.images.map((image, index) => (
                 <CarouselItem key={index}>
-                  <div className="p-1">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="p-1"
+                  >
                     <Image
                       src={image}
                       alt={`Livery image ${index + 1}`}
-                      width={400}
-                      height={300}
-                      className="rounded-lg"
+                      width={600}
+                      height={400}
+                      className="rounded-lg object-cover w-full h-[400px]"
                     />
-                  </div>
+                  </motion.div>
                 </CarouselItem>
               ))}
             </CarouselContent>
             <CarouselPrevious />
             <CarouselNext />
           </Carousel>
-          <div className="flex justify-between items-center mt-4">
-            <Button
-              onClick={handleLike}
-              variant={isLiked ? "default" : "outline"}
-            >
-              <Heart
-                className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`}
-              />
-              {formatCount(livery.likes)}
-            </Button>
-            <div className="flex items-center">
-              <Eye className="mr-2 h-4 w-4" />
-              {formatCount(livery.views)}
-            </div>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-6"
+          >
+            <h2 className="text-xl font-semibold mb-2">Description</h2>
+            <p className="text-gray-600">{livery.description}</p>
+          </motion.div>
         </div>
         <div>
-          <Card>
+          <Card className="w-full">
             <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-2">Details</h2>
-              <p className="mb-2">
-                <strong>Aircraft:</strong> {livery.aircraft}
-              </p>
-              <p className="mb-2">
-                <strong>Description:</strong> {livery.description}
-              </p>
-              <p className="mb-2">
-                <strong>Creator:</strong> {username || "Loading..."}
+              <motion.h1
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-3xl font-bold mb-4"
+              >
+                {livery.title}
+              </motion.h1>
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                className="flex items-center mb-4"
+              >
+                <Image
+                  src={posterUserImage}
+                  alt={posterUserName}
+                  width={40}
+                  height={40}
+                  className="rounded-full mr-2"
+                />
+                <span className="font-semibold">{posterUserName}</span>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex justify-between items-center mb-6"
+              >
+                <div className="flex items-center space-x-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLike}
+                    className="flex items-center space-x-1"
+                  >
+                    <Heart
+                      className={`h-5 w-5 ${
+                        isLiked ? "fill-red-500 text-red-500" : ""
+                      }`}
+                    />
+                    <span>{formatCount(livery.likes)}</span>
+                  </Button>
+                  <div className="flex items-center space-x-1">
+                    <Eye className="h-5 w-5" />
+                    <span>{formatCount(livery.views)}</span>
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleCopy(livery.user_id, "User ID")}
-                  className="ml-2"
+                  onClick={handleSave}
+                  className="flex items-center space-x-1"
                 >
-                  <Copy className="h-4 w-4" />
+                  <Bookmark
+                    className={`h-5 w-5 ${
+                      isSaved ? "fill-yellow-500 text-yellow-500" : ""
+                    }`}
+                  />
+                  <span>{formatCount(livery.saves)}</span>
                 </Button>
-              </p>
-              <p className="mb-2">
-                <strong>Created:</strong>{" "}
-                {new Date(livery.created_at).toLocaleDateString()}
-              </p>
-              <div className="mb-2">
-                <strong>Texture IDs:</strong>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  {livery.texture_ids.map((texture, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="space-y-2"
+              >
+                <h2 className="text-xl font-semibold mb-2">Texture IDs</h2>
+                {livery.texture_ids.map((texture, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center"
+                  >
+                    <Badge variant="secondary" className="text-xs">
                       {texture.name}: {texture.id}
                     </Badge>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <strong>Advanced Customization:</strong>
-                <pre className="bg-muted p-2 rounded-md mt-1 text-xs overflow-x-auto">
-                  {JSON.stringify(livery.advanced_customization, null, 2)}
-                </pre>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    handleCopy(
-                      JSON.stringify(livery.advanced_customization),
-                      "Advanced customization"
-                    )
-                  }
-                  className="mt-2"
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy
-                </Button>
-              </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        handleCopy(texture.id, `${texture.name} ID`)
+                      }
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="mt-6"
+              >
+                <h2 className="text-xl font-semibold mb-2">
+                  Advanced Customization
+                </h2>
+                {livery.advanced_customization ? (
+                  <>
+                    <pre className="bg-muted p-2 rounded-md mt-1 text-xs overflow-x-auto">
+                      {JSON.stringify(livery.advanced_customization, null, 2)}
+                    </pre>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleCopy(
+                          JSON.stringify(livery.advanced_customization),
+                          "Advanced customization"
+                        )
+                      }
+                      className="mt-2"
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No advanced customization available
+                  </p>
+                )}
+              </motion.div>
             </CardContent>
           </Card>
         </div>

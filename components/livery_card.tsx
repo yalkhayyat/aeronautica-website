@@ -9,14 +9,17 @@ import { Heart, User, Eye } from "lucide-react";
 export interface Livery {
   id: number;
   created_at: string;
+  updated_at: string;
   user_id: string;
   title: string;
   description: string;
-  aircraft: string;
+  vehicle_name: string;
+  vehicle_type: string;
   advanced_customization: {};
   texture_ids: [{ id: string; name: string }];
   views: number;
   likes: number;
+  saves: number;
   images: [string];
 }
 
@@ -67,7 +70,7 @@ export function LiveryCard({ livery }: LiveryCardProps) {
             className="w-full h-48 object-cover"
           />
           <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground">
-            {livery.aircraft}
+            {livery.vehicle_name}
           </Badge>
         </div>
         <CardContent className="p-4">
