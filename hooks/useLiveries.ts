@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { useSupabase } from '@/lib/supabase-provider';
 import { Livery } from '@/components/livery_card';
 
@@ -14,7 +13,6 @@ export function useLiveries(initialPage = 1, initialPageSize = 12) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [searchQuery, setSearchQuery] = useState('')
   const [aircraftFilter, setAircraftFilter] = useState<string | null>(null)
-  const { user } = useUser()
   const supabaseClient = useSupabase()
 
   useEffect(() => {
@@ -61,10 +59,8 @@ export function useLiveries(initialPage = 1, initialPageSize = 12) {
       setLoading(false)
     }
 
-    if (user) {
-      fetchLiveries()
-    }
-  }, [user, supabaseClient, page, pageSize, sortBy, sortOrder, searchQuery, aircraftFilter])
+    fetchLiveries()
+  }, [supabaseClient, page, pageSize, sortBy, sortOrder, searchQuery, aircraftFilter])
 
   return { 
     liveries, 
