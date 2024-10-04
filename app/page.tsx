@@ -52,9 +52,11 @@ export default function HomePage() {
             liveries
           </p>
           <div className="flex justify-center space-x-4">
-            <Button variant="secondary" size="lg">
-              <Upload className="mr-2 h-5 w-5" /> Upload Livery
-            </Button>
+            <Link href="/post">
+              <Button variant="secondary" size="lg">
+                <Upload className="mr-2 h-5 w-5" /> Post a Livery
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

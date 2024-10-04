@@ -24,11 +24,11 @@ export default function Navbar() {
             <Link href="/" className="flex items-center">
               <Plane className="h-6 w-6 text-primary mr-2" />
               <span className="text-2xl font-bold text-foreground hidden sm:inline">
-                Aeronautica
+                aerohub
               </span>
             </Link>
           </div>
-          <div className="flex-1 max-w-md mx-4">
+          {/* <div className="flex-1 max-w-md mx-4">
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <Input
@@ -41,7 +41,7 @@ export default function Navbar() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               </div>
             </form>
-          </div>
+          </div> */}
           <div className="flex items-center space-x-4">
             {isSignedIn ? (
               <>
@@ -56,11 +56,11 @@ export default function Navbar() {
             ) : (
               <>
                 <SignInButton mode="modal">
-                  <Button variant="ghost">Log In</Button>
+                  <Button variant="ghost">Sign In</Button>
                 </SignInButton>
-                <SignUpButton mode="modal">
+                {/* <SignUpButton mode="modal">
                   <Button variant="default">Sign Up</Button>
-                </SignUpButton>
+                </SignUpButton> */}
               </>
             )}
           </div>
