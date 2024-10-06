@@ -79,7 +79,7 @@ export default function LiveryPage() {
           setLivery(data);
         }
       } catch (error) {
-        console.error("Error fetching user_id:", error);
+        console.error("Error fetching livery data:", error);
         toast({
           title: "Server Error",
           description: "Failed to fetch livery data",
@@ -109,7 +109,7 @@ export default function LiveryPage() {
           setIsLoading(false);
         }
       } catch (error) {
-        console.error("Error fetching user data:", error);
+        console.error("Error fetching livery creator data:", error);
         toast({
           title: "Internal Server Error",
           description: "Failed to fetch user data",
