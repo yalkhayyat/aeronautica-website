@@ -49,14 +49,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Handle the webhook
-  const { id, username, image_url, created_at } = evt.data
+  const { id, external_accounts, image_url, created_at } = evt.data
 
   try {
     const { data, error } = await supabase
       .from('users')
       .insert({
         id: id,
-        username: username,
+        discord_id: external_accounts[0].provider_user_id,
+        username: external_accounts[0].username,
         image_url: image_url,
         created_at: new Date(created_at).toISOString(),
       })
