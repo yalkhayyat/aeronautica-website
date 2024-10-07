@@ -137,7 +137,7 @@ export default function LiveryPage() {
 
         if (data) {
           setUserData(data);
-          setIsLiked(data.likes.includes(Number(livery_id)) || false);
+          setIsLiked(data.likes?.includes(Number(livery_id)) ?? false);
           setIsLoading(false);
         }
       } catch (error) {
