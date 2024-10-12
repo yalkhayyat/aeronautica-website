@@ -34,7 +34,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         global: {
           fetch: async (url, options = {}) => {
             const clerkToken = await session.getToken({
-              template: "aeronautica-website-supabase", // Your JWT template name
+              // template: "aerohub-dev-supabase", // Your JWT template name
+              template: process.env.NEXT_PUBLIC_JWT_TEMPLATE, // Your JWT template name
             });
 
             const headers = new Headers(options?.headers);
