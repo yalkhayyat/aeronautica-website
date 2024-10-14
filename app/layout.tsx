@@ -1,10 +1,11 @@
 import "@/app/globals.css";
 
-import NavBar from "@/components/navbar";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SupabaseProvider } from "@/lib/supabase-provider";
+import { Alexandria } from "next/font/google";
+const alexandria = Alexandria({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
@@ -12,11 +13,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        elements: {
+          footer: "hidden",
+        },
+      }}
+    >
       <SupabaseProvider>
         <html lang="en">
-          <body>
-            <NavBar />
+          <body className={alexandria.className}>
             {children}
             <Toaster />
           </body>
