@@ -1,36 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Overview
+Aerohub is a website built for the popular Roblox game, [Aeronautica](https://www.roblox.com/games/6647962258/Aeronautica).
 
-## Getting Started
+During my time in the Aeronautica community, I noticed that many people enjoyed creating and sharing liveries, but it was hard to search for the ones you like.
+Aerohub is my attempt in solving that problem.
 
-First, run the development server:
+![image](https://github.com/user-attachments/assets/f505de9e-6767-41e2-9a07-81fcdfce6c13)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Aerohub allows players to sign in through their Discord accounts, making it easily accessible for the 30,000+ member discord community.
+Signed in users can upload liveries with relevant meta data, and other users can search, filter, and browse through all uploaded liveries.
