@@ -1,5 +1,5 @@
 # Overview
-Aerohub ([https://www.aero-hub.xyz/]([url](https://www.aero-hub.xyz/))) is a website built for the popular Roblox game, [Aeronautica](https://www.roblox.com/games/6647962258/Aeronautica).
+Aerohub ([https://www.aero-hub.xyz/]((https://www.aero-hub.xyz/))) is a website built for the popular Roblox game, [Aeronautica](https://www.roblox.com/games/6647962258/Aeronautica).
 
 During my time in the Aeronautica community, I noticed that many people enjoyed creating and sharing liveries, but it was hard to search for the ones you like.
 Aerohub is my attempt in solving that problem.
