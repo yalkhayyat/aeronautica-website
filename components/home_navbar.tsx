@@ -6,7 +6,7 @@ import Image from "next/image";
 
 export default function Navbar() {
   return (
-    <div className="relative rounded-xl m-2 h-[600px] flex flex-col justify-between bg-gradient-to-t from-black/30 via-black/10 to-black/0">
+    <div className="relative rounded-xl m-2 h-[98vh] flex flex-col justify-between bg-gradient-to-t from-black/30 via-black/10 to-black/0">
       <Image
         className="-z-10 object-cover rounded-xl saturate-150 brightness-110"
         src="/a32000.png"
@@ -23,19 +23,19 @@ export default function Navbar() {
         <div className="flex">
           <Link
             href={"/liveries"}
-            className="mx-2 opacity-80 hover:opacity-100 transition-all text-white"
+            className="mx-6 hover:underline underline-offset-2 text-white"
           >
             Liveries
           </Link>
           <Link
             href={"/post"}
-            className="mx-2 opacity-80 hover:opacity-100 transition-all text-white"
+            className="mx-6 hover:underline underline-offset-2 text-white"
           >
             Post
           </Link>
           <Link
             href={"/about"}
-            className="mx-2 opacity-80 hover:opacity-100 transition-all text-white"
+            className="mx-6 hover:underline underline-offset-2 text-white"
           >
             About
           </Link>

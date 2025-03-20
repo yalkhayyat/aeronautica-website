@@ -52,7 +52,7 @@ export default function HomePage() {
         sortedPosts?.sort((a, b) => b.score - a.score);
 
         // Update the state with sorted posts
-        setPosts(sortedPosts.slice(0, 3));
+        setPosts(sortedPosts.slice(0, 6));
       }
     };
 
@@ -72,7 +72,7 @@ export default function HomePage() {
           <Link href={"/liveries"}>View All</Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[1200px] mt-8 lg:h-[500px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mt-8">
           {posts?.map((post) => (
             <Card
               key={post.id}

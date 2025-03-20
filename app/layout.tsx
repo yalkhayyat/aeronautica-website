@@ -21,7 +21,7 @@ export default function RootLayout({
       }}
     >
       <SupabaseProvider>
-        <html lang="en">
+        <html lang="en" className="bg-gray-100">
           <body className={alexandria.className}>
             {children}
             <Toaster />
