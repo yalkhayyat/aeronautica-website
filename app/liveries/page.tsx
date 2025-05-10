@@ -157,7 +157,7 @@ function FilterAndSearchBar({
             </TabsList>
           </Tabs>
           <div className="flex items-center space-x-4 w-full sm:w-auto">
-            <div className="relative flex-grow sm:flex-grow-0">
+            <div className="relative grow sm:grow-0">
               <Input
                 type="search"
                 placeholder="Search liveries..."
