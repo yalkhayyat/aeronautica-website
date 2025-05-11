@@ -1,24 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import useEmblaCarousel from "embla-carousel-react";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Heart,
-  Bookmark,
+  Star,
   Copy,
-  Eye,
+  CalendarIcon,
+  User,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -26,6 +27,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Livery } from "@/components/livery_card";
 import { useSupabase } from "@/lib/supabase-provider";
 import { useUser } from "@clerk/nextjs";
+import { format } from "date-fns";
+import { UserProfileCard } from "@/components/user-profile-card";
 
 function formatCount(count: number): string {
   if (count >= 1000000) {
@@ -37,38 +40,52 @@ function formatCount(count: number): string {
   }
 }
 
-interface UserData {
-  username: string;
-  image_url: string;
-  likes: [number];
-  saves: [number];
-}
-
 export default function LiveryPage() {
   const [livery, setLivery] = useState<Livery | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [posterUserId, setPosterUserId] = useState("");
-  const [posterUserName, setPosterUserName] = useState("");
-  const [posterUserImage, setPosterUserImage] = useState("");
-  const { isSignedIn, user } = useUser();
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const [isSaveLoading, setIsSaveLoading] = useState(false);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
+
+  const { user } = useUser();
   const { toast } = useToast();
   const params = useParams();
   const livery_id = Array.isArray(params.id) ? params.id[0] : params.id;
-
   const supabase = useSupabase();
 
-  // Get post data
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
+
+  // Setup Embla Carousel event handlers
   useEffect(() => {
-    async function fetchPostData() {
+    if (!emblaApi) return;
+
+    const onSelect = () => {
+      // No need to update currentSlide or totalSlides here
+    };
+
+    emblaApi.on("select", onSelect);
+
+    return () => {
+      emblaApi.off("select", onSelect);
+    };
+  }, [emblaApi]);
+
+  // Fetch livery data
+  useEffect(() => {
+    async function fetchLiveryData() {
       try {
         const { data, error } = await supabase
           .from("liveries")
-          .select(
-            "id,user_id,likes,saves,created_at,title,description,images,advanced_customization,views,updated_at,vehicle_name,vehicle_type,texture_ids"
-          )
+          .select("*")
           .eq("id", livery_id)
           .single();
 
@@ -77,296 +94,538 @@ export default function LiveryPage() {
         if (data) {
           setPosterUserId(data.user_id);
           setLivery(data);
+          setIsLoading(false);
         }
       } catch (error) {
-        console.error("Error fetching livery data:", error);
+        console.error("Error fetching livery:", error);
         toast({
-          title: "Server Error",
-          description: "Failed to fetch livery data",
+          title: "Error",
+          description: "Failed to load livery data",
           variant: "destructive",
         });
+        setIsLoading(false);
       }
     }
 
-    fetchPostData();
+    fetchLiveryData();
   }, [livery_id, supabase, toast]);
 
-  // Get livery poster user data
+  // Check if the user has liked and saved this livery
   useEffect(() => {
-    async function fetchUserData() {
+    // Skip if no user or no livery
+    if (!user?.id) return;
+
+    async function checkUserInteractions() {
       try {
         const { data, error } = await supabase
           .from("users")
-          .select("username,image_url")
-          .eq("id", posterUserId)
+          .select("likes, saves")
+          .eq("id", user!.id)
           .single();
 
-        if (error) throw error;
+        if (error || !data) return;
 
-        if (data) {
-          setPosterUserName(data.username);
-          setPosterUserImage(data.image_url);
-          setIsLoading(false);
-        }
+        // Check if this livery ID is in the user's likes array
+        const numericLiveryId = parseInt(livery_id as string, 10);
+
+        // Check likes
+        const hasLiked =
+          Array.isArray(data.likes) && data.likes.includes(numericLiveryId);
+        setIsLiked(hasLiked);
+
+        // Check saves
+        const hasSaved =
+          Array.isArray(data.saves) && data.saves.includes(numericLiveryId);
+        setIsSaved(hasSaved);
       } catch (error) {
-        console.error("Error fetching livery creator data:", error);
-        toast({
-          title: "Internal Server Error",
-          description: "Failed to fetch user data",
-          variant: "destructive",
-        });
+        console.error("Error checking user interactions:", error);
       }
     }
 
-    if (posterUserId != "") {
-      fetchUserData();
-    }
-  }, [posterUserId, toast, supabase]);
+    checkUserInteractions();
+  }, [user, livery_id, supabase]);
 
-  // Fetch signed in user data
-  useEffect(() => {
-    async function fetchUserData() {
-      try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("username,image_url,likes,saves")
-          .eq("id", user?.id)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          setUserData(data);
-          setIsLiked(data.likes?.includes(Number(livery_id)) ?? false);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-        toast({
-          title: "Internal Server Error",
-          description: "Failed to fetch user data",
-          variant: "destructive",
-        });
-      }
-    }
-
-    if (posterUserId != "") {
-      fetchUserData();
-    }
-  }, [posterUserId, toast, supabase, user, livery_id]);
-
+  // Handle like/unlike
   const handleLike = async () => {
-    const { error } = await supabase.rpc("toggle_like_livery", {
-      livery_id_input: Number(livery_id),
-    });
+    // Early returns for invalid states
+    if (isLikeLoading || !user) {
+      if (!user) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to like this livery",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
 
-    if (error) {
+    try {
+      // Start loading and optimistically update UI
+      setIsLikeLoading(true);
+      setIsLiked(!isLiked);
+
+      // Call the RPC function to toggle like
+      const { error } = await supabase.rpc("toggle_like_livery", {
+        livery_id_input: parseInt(livery_id as string, 10),
+      });
+
+      if (error) throw error;
+
+      // Update livery with fresh data
+      const { data: updatedLivery } = await supabase
+        .from("liveries")
+        .select("likes")
+        .eq("id", livery_id)
+        .single();
+
+      if (updatedLivery) {
+        setLivery((prev) =>
+          prev ? { ...prev, likes: updatedLivery.likes } : null
+        );
+      }
+    } catch (error) {
+      // Revert on error
+      setIsLiked(isLiked);
+      console.error("Error toggling like:", error);
       toast({
-        title: "Server Error",
-        description: "Failed to like/unlike the image. Please try again.",
+        title: "Error",
+        description: "Failed to update like status",
         variant: "destructive",
       });
+    } finally {
+      setIsLikeLoading(false);
+    }
+  };
+
+  // Handle save/unsave
+  const handleSave = async () => {
+    // Early returns for invalid states
+    if (isSaveLoading || !user) {
+      if (!user) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to save this livery",
+          variant: "destructive",
+        });
+      }
+      return;
     }
 
-    setLivery((prevLivery) => {
-      if (!prevLivery) return prevLivery; // Handle null case
+    try {
+      // Start loading and optimistically update UI
+      setIsSaveLoading(true);
+      setIsSaved(!isSaved);
 
-      return {
-        ...prevLivery,
-        likes: isLiked ? prevLivery.likes - 1 : prevLivery.likes + 1,
-      };
-    });
-    setIsLiked(!isLiked);
+      // Call the RPC function to toggle save
+      const { error } = await supabase.rpc("toggle_save_livery", {
+        livery_id_input: parseInt(livery_id as string, 10),
+      });
+
+      if (error) throw error;
+
+      // Update livery with fresh data
+      const { data: updatedLivery } = await supabase
+        .from("liveries")
+        .select("saves")
+        .eq("id", livery_id)
+        .single();
+
+      if (updatedLivery) {
+        setLivery((prev) =>
+          prev ? { ...prev, saves: updatedLivery.saves } : null
+        );
+      }
+    } catch (error) {
+      // Revert on error
+      setIsSaved(isSaved);
+      console.error("Error toggling save:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update save status",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaveLoading(false);
+    }
   };
 
-  const handleSave = async () => {
-    // TODO: Implement save functionality
-    setIsSaved(!isSaved);
-  };
-
+  // Handle copy to clipboard
   const handleCopy = (text: string, description: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Copied!",
-      description: `${description} has been copied to your clipboard.`,
+      title: "Copied",
+      description: `${description} copied to clipboard`,
     });
   };
 
   if (isLoading) {
-    return null;
+    return <LiveryPageSkeleton />;
   }
 
   if (!livery) {
-    return <div>Livery not found</div>;
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md animate-in fade-in duration-500">
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <div className="rounded-full bg-muted/50 p-4 mb-4">
+              <User className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-semibold text-center mb-2">
+              Livery not found
+            </h2>
+            <p className="text-muted-foreground text-center">
+              The livery you&apos;re looking for doesn&apos;t exist or has been
+              removed.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
+  const createdDate = livery.created_at
+    ? format(new Date(livery.created_at), "MMM d, yyyy")
+    : "Unknown date";
+
   return (
-    <div className="max-w-7xl container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <div className="w-full mx-auto">
-            <Carousel className="w-full">
-              <CarouselContent>
-                {livery.images.map((image, index) => (
-                  <CarouselItem key={index}>
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.5 }}
-                      className="relative"
-                    >
-                      <Image
-                        src={image}
-                        alt={`Livery image ${index + 1}`}
-                        width={600}
-                        height={400}
-                        className="rounded-lg object-cover w-full h-[400px]"
-                      />
-                      <CarouselPrevious className="absolute left-2 top-1/2 transform -translate-y-1/2" />
-                      <CarouselNext className="absolute right-2 top-1/2 transform -translate-y-1/2" />
-                    </motion.div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="mt-6"
-            >
-              <h2 className="text-xl font-semibold mb-2">Description</h2>
-              <p className="text-gray-600">{livery.description}</p>
-            </motion.div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight mb-2">
+          {livery.title}
+        </h1>
+        <div className="flex items-center text-muted-foreground">
+          <div className="flex items-center text-sm">
+            <CalendarIcon className="h-4 w-4 mr-1.5" /> {createdDate}
           </div>
         </div>
-        <div>
-          <Card className="w-full">
-            <CardContent className="p-6">
-              <motion.h1
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-3xl font-bold mb-4"
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Embla Carousel */}
+          <Card className="overflow-hidden border-none bg-transparent shadow-none w-full">
+            <div className="relative w-full">
+              <div
+                className="overflow-hidden w-[calc(100%+3rem)] -mx-6"
+                ref={emblaRef}
               >
-                {livery.title}
-              </motion.h1>
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                className="flex items-center mb-4"
-              >
-                <Image
-                  src={posterUserImage}
-                  alt={posterUserName}
-                  width={40}
-                  height={40}
-                  className="rounded-full mr-2"
-                />
-                <span className="font-semibold">{posterUserName}</span>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="flex justify-between items-center mb-6"
-              >
-                <div className="flex items-center space-x-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleLike}
-                    className="flex items-center space-x-1"
-                  >
-                    <Heart
-                      className={`h-5 w-5 ${
-                        isLiked ? "fill-red-500 text-red-500" : ""
-                      }`}
-                    />
-                    <span>{formatCount(livery.likes)}</span>
-                  </Button>
-                  <div className="flex items-center space-x-1">
-                    <Eye className="h-5 w-5" />
-                    <span>{formatCount(livery.views)}</span>
-                  </div>
+                <div className="flex">
+                  {livery.images.map((image, index) => (
+                    <div
+                      key={index}
+                      className="flex-[0_0_100%] flex items-center justify-center px-6"
+                    >
+                      <Card className="overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm shadow-md w-full">
+                        <div className="relative flex justify-center">
+                          <Image
+                            src={image}
+                            alt={`${livery.title} - Image ${index + 1}`}
+                            width={800}
+                            height={600}
+                            className="object-contain w-auto max-h-[80vh] mx-auto"
+                            priority={index === 0}
+                            style={{ display: "block" }}
+                          />
+                        </div>
+                      </Card>
+                    </div>
+                  ))}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSave}
-                  className="flex items-center space-x-1"
+              </div>
+
+              {/* Carousel Controls */}
+              <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
+                <button
+                  onClick={scrollPrev}
+                  className="ml-3 bg-background/30 hover:bg-background/60 backdrop-blur-sm p-1.5 rounded-full transition-colors cursor-pointer shadow-sm z-10 pointer-events-auto focus:outline-none"
+                  aria-label="Previous slide"
                 >
-                  <Bookmark
-                    className={`h-5 w-5 ${
-                      isSaved ? "fill-yellow-500 text-yellow-500" : ""
-                    }`}
-                  />
-                  <span>{formatCount(livery.saves)}</span>
+                  <ChevronLeft className="h-4 w-4 text-foreground/70" />
+                </button>
+                <button
+                  onClick={scrollNext}
+                  className="mr-3 bg-background/30 hover:bg-background/60 backdrop-blur-sm p-1.5 rounded-full transition-colors cursor-pointer shadow-sm z-10 pointer-events-auto focus:outline-none"
+                  aria-label="Next slide"
+                >
+                  <ChevronRight className="h-4 w-4 text-foreground/70" />
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Description */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl font-semibold">
+                About this Livery
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-card-foreground/80 leading-relaxed text-sm">
+                {livery.description || "No description provided."}
+              </p>
+
+              <Separator className="my-6" />
+
+              <h3 className="text-lg font-semibold mb-4">
+                Vehicle Information
+              </h3>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <p className="text-muted-foreground mb-1.5 text-xs font-medium">
+                    Vehicle Name
+                  </p>
+                  <p className="text-sm">{livery.vehicle_name}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1.5 text-xs font-medium">
+                    Vehicle Type
+                  </p>
+                  <p className="text-sm">{livery.vehicle_type}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          {/* User Profile Card */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <CardContent className="p-0">
+              <UserProfileCard userId={posterUserId} />
+            </CardContent>
+          </Card>
+
+          {/* Like/Save Actions */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex gap-4">
+                {/* Like Button */}
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleLike}
+                  disabled={isLikeLoading}
+                  className={`flex-1 transition-colors ${
+                    isLiked ? "text-red-500 border-red-200 bg-red-50/50" : ""
+                  }`}
+                >
+                  {isLikeLoading ? (
+                    <div className="flex items-center">
+                      <div className="h-5 w-5 mr-2 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
+                      {formatCount(livery.likes)}
+                    </div>
+                  ) : (
+                    <>
+                      <Heart
+                        className={`h-5 w-5 mr-2 transition-all text-red-500 ${
+                          isLiked ? "fill-red-500" : ""
+                        }`}
+                      />
+                      {formatCount(livery.likes)}
+                    </>
+                  )}
                 </Button>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="space-y-2"
-              >
-                <h2 className="text-xl font-semibold mb-2">Texture IDs</h2>
+
+                {/* Save Button */}
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleSave}
+                  disabled={isSaveLoading}
+                  className={`flex-1 transition-colors ${
+                    isSaved
+                      ? "text-yellow-500 border-yellow-200 bg-yellow-50/50"
+                      : ""
+                  }`}
+                >
+                  {isSaveLoading ? (
+                    <div className="flex items-center">
+                      <div className="h-5 w-5 mr-2 animate-spin rounded-full border-2 border-yellow-500 border-t-transparent" />
+                      {formatCount(livery.saves)}
+                    </div>
+                  ) : (
+                    <>
+                      <Star
+                        className={`h-5 w-5 mr-2 transition-all text-yellow-500 ${
+                          isSaved ? "fill-yellow-500" : ""
+                        }`}
+                      />
+                      {formatCount(livery.saves)}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Texture IDs */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl font-semibold">
+                Texture IDs
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
                 {livery.texture_ids.map((texture, index) => (
                   <div
                     key={index}
-                    className="flex justify-between items-center"
+                    className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted/80 transition-colors"
                   >
-                    <Badge variant="secondary" className="text-xs">
-                      {texture.name}: {texture.id}
-                    </Badge>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                        {texture.name}
+                      </p>
+                      <p className="font-mono text-sm">{texture.id}</p>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() =>
                         handleCopy(texture.id, `${texture.name} ID`)
                       }
+                      className="h-8 w-8 p-0 rounded-full"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="mt-6"
-              >
-                <h2 className="text-xl font-semibold mb-2">
-                  Advanced Customization
-                </h2>
-                {livery.advanced_customization ? (
-                  <>
-                    <pre className="bg-muted p-2 rounded-md mt-1 text-xs overflow-x-auto">
-                      {JSON.stringify(livery.advanced_customization, null, 2)}
-                    </pre>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        handleCopy(
-                          JSON.stringify(livery.advanced_customization),
-                          "Advanced customization"
-                        )
-                      }
-                      className="mt-2"
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-500">
-                    No advanced customization available
-                  </p>
-                )}
-              </motion.div>
+              </div>
             </CardContent>
+          </Card>
+
+          {/* Advanced Customization */}
+          {livery.advanced_customization && (
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl font-semibold">
+                  Advanced Customization
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-muted/50 p-4 rounded-lg text-xs overflow-x-auto font-mono text-card-foreground/80 max-h-60">
+                  {JSON.stringify(livery.advanced_customization, null, 2)}
+                </pre>
+              </CardContent>
+              <CardFooter className="pt-0 pb-4 px-4 sm:px-6">
+                <Button
+                  variant="secondary"
+                  className="w-full text-sm"
+                  onClick={() =>
+                    handleCopy(
+                      JSON.stringify(livery.advanced_customization),
+                      "Advanced customization"
+                    )
+                  }
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Configuration
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LiveryPageSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-in fade-in duration-500">
+      {/* Header Section Skeleton */}
+      <div className="mb-8 space-y-2">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-5 w-40" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Image Carousel Skeleton */}
+          <Card className="overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+            <Skeleton className="w-full h-[550px]" />
+          </Card>
+
+          {/* Description Skeleton */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <Skeleton className="h-7 w-40" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+
+              <Separator className="my-6" />
+
+              <Skeleton className="h-6 w-40 mb-4" />
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-5 w-32" />
+                </div>
+                <div>
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-5 w-28" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          {/* Profile Card Skeleton */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <Skeleton className="w-full h-72" />
+          </Card>
+
+          {/* Like/Save Actions Skeleton */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex gap-4">
+                <Skeleton className="h-10 flex-1" />
+                <Skeleton className="h-10 flex-1" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Texture IDs Skeleton */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3].map((_, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center bg-muted/50 p-3 rounded-lg"
+                  >
+                    <div>
+                      <Skeleton className="h-3 w-16 mb-1" />
+                      <Skeleton className="h-5 w-32" />
+                    </div>
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Advanced Customization Skeleton */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-40 w-full rounded-lg" />
+            </CardContent>
+            <CardFooter className="pt-0 pb-4 px-4 sm:px-6">
+              <Skeleton className="h-9 w-full" />
+            </CardFooter>
           </Card>
         </div>
       </div>
