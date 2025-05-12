@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const { data: updatedLiveries, error: liveryError } = await supabase
       .from('liveries')
       .update({ user_id: id })
-      .eq('discord_id', discordId)
+      .eq('user_discord_id', discordId)
       .select();
     
     if (liveryError) {
