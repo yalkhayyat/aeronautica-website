@@ -62,6 +62,23 @@ export async function POST(req: NextRequest) {
         created_at: new Date(created_at).toISOString(),
       })
       .single()
+    
+    // Update any existing liveries created with this Discord ID to link to the new user ID
+    const discordId = external_accounts[0].provider_user_id;
+    
+    // Find and update liveries that match the Discord ID
+    const { data: updatedLiveries, error: liveryError } = await supabase
+      .from('liveries')
+      .update({ user_id: id })
+      .eq('discord_id', discordId)
+      .select();
+    
+    if (liveryError) {
+      console.error('Error updating liveries:', liveryError);
+      // Continue with user creation even if livery update fails
+    } else {
+      console.log(`Updated ${updatedLiveries?.length || 0} liveries to new user ID`);
+    }
 
     if (error) throw error
     
